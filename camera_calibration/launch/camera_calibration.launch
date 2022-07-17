@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- DOESN'T WORK: 
+  <arg name="/camera_calibration/check_frame_rate" default="true" />
+  <arg name="_record_save" default="false" />
+  <arg name="_calibrate" default="false" />
+  <arg name="_rectification" default="false" />
+  <arg name="_test_calibration" default="false" /> -->
+
+  <rosparam file="$(find camera_calibration)/config/camera_params.yaml" />
+  <node name="stereo_camera_calibration" pkg="camera_calibration" type="camera_calibration_run" output="screen"/>
+</launch>
+
+<!-- WORKS: 
+     roslaunch camera_calibration camera_calibration.launch 
+     rosparam load src/camera_calibration/config/camera_params.yaml -->
+
+<!-- DOESN'T WORK: 
+     roslaunch camera_calibration camera_calibration.launch _check_frame_rate:=true -->
+
+
+
+<!-- source devel/setup.bash -->
