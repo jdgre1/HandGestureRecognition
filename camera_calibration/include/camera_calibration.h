@@ -27,9 +27,9 @@ class StereoCalibration
 		void calibrate_stereo();
 		bool verify_checkerboard_corners(cv::Mat& frame0, cv::Mat& frame1); 
 		bool initialise_cameras(); 
-		void saveCameraParams();
+		void saveCameraCalibParams();
+		void loadCameraCalibParams();
 		void process_checkerboard_corners(bool draw_corners);
-
 
 
 		struct StereoParams 

@@ -102,7 +102,6 @@ bool StereoCalibration::verify_checkerboard_corners(cv::Mat& frame0, cv::Mat& fr
         cv::Mat frame0_copy = frame0.clone();
         cv::Mat frame1_copy = frame1.clone();
         cv::TermCriteria criteria(cv::TermCriteria::MAX_ITER + cv::TermCriteria::EPS, 30, 0.001);
-        
 
         cv::cornerSubPix(gray0, corner_pts0, cv::Size(11, 11), cv::Size(-1, -1), criteria);
         cv::cornerSubPix(gray1, corner_pts1, cv::Size(11, 11), cv::Size(-1, -1), criteria);
@@ -221,9 +220,11 @@ void StereoCalibration::process_checkerboard_corners(bool draw_corners)
 
     for (int photo_counter = 1; photo_counter <= m_num_calibration_imgs; photo_counter++)
     {
+        std::cout << "imgL: " << m_frames_save_dir + "0/frame0_" + std::to_string(photo_counter) + ".png" << std::endl;
+        std::cout << "imgR: " << m_frames_save_dir + "1/frame1_" + std::to_string(photo_counter) + ".png" << std::endl;
         fprintf(stderr, "Import pair No %d\n", photo_counter);
-        imgL = cv::imread(m_frames_save_dir + "camera_0/frame0_" + std::to_string(photo_counter) + ".png");
-        imgR = cv::imread(m_frames_save_dir + "camera_1/frame1_" + std::to_string(photo_counter) + ".png");
+        imgL = cv::imread(m_frames_save_dir + "0/frame0_" + std::to_string(photo_counter) + ".png");
+        imgR = cv::imread(m_frames_save_dir + "1/frame1_" + std::to_string(photo_counter) + ".png");
 
         if (imgR.empty() || imgL.empty())
         {
@@ -291,14 +292,31 @@ void StereoCalibration::calibrate_single_cameras(bool save_params, bool draw_cor
     rms = cv::calibrateCamera(m_stereo_params.objpointsRight, m_stereo_params.imgpointsRight, image_size, m_stereo_params.mtxR, m_stereo_params.distR, rvecs, tvecs);
     std::cout << "Right camera calibration rms of " << rms << std::endl;
 
-    if(save_params) saveCameraParams();
+    if(save_params) saveCameraCalibParams();
 
     return;
 }
 
+void StereoCalibration::calibrate_stereo()
+{
+    loadCameraCalibParams(); 
+    cv::Size image_size(IMG_WIDTH, IMG_HEIGHT);
+    cv::Mat new_mtxL = cv::getOptimalNewCameraMatrix(m_stereo_params.mtxL, m_stereo_params.distL, image_size, 1, image_size, 0);
+    cv::Mat new_mtxR = cv::getOptimalNewCameraMatrix(m_stereo_params.mtxR, m_stereo_params.distR, image_size, 1, image_size, 0);
+
+    cv::Mat Rot, Trns, Emat, Fmat;
+    int flag = 0;
+    flag |= cv::CALIB_FIX_INTRINSIC;
+
+    double stereo_rms = cv::stereoCalibrate(m_stereo_params.objpointsRight, m_stereo_params.imgpointsLeft, m_stereo_params.imgpointsRight, new_mtxL, 
+                                                m_stereo_params.distL, new_mtxR, m_stereo_params.distR, image_size, Rot, Trns, Emat, Fmat, flag,
+                                                cv::TermCriteria(cv::TermCriteria::MAX_ITER + cv::TermCriteria::EPS, 30, 1e-6));
+    std::cout << "stereo_rms: " << stereo_rms << std::endl;
+    return;
+}
 
 // Save the parameters obtained from successful calibration:
-void StereoCalibration::saveCameraParams() 
+void StereoCalibration::saveCameraCalibParams() 
 {
     cv::FileStorage fs(m_stereo_params.pre_stereo_calib_file, cv::FileStorage::WRITE);
     fs << "imgpointsL" << m_stereo_params.imgpointsLeft;
@@ -308,5 +326,18 @@ void StereoCalibration::saveCameraParams()
     fs << "distR" << m_stereo_params.distR;
     fs << "mtxL" << m_stereo_params.mtxL;
     fs << "mtxR" << m_stereo_params.mtxR;
+    return;
+}
+
+void StereoCalibration::loadCameraCalibParams() 
+{
+    cv::FileStorage fs(m_stereo_params.pre_stereo_calib_file, cv::FileStorage::READ);
+    fs["imgpointsL"] >> m_stereo_params.imgpointsLeft;
+    fs["imgpointsR"] >> m_stereo_params.imgpointsRight;
+    fs["objpointsRight"] >> m_stereo_params.objpointsRight;
+    fs["distL"] >> m_stereo_params.distL;
+    fs["distR"] >> m_stereo_params.distR;
+    fs["mtxL"] >> m_stereo_params.mtxL;
+    fs["mtxR"] >> m_stereo_params.mtxR;
     return;
 }
