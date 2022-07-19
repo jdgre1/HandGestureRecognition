@@ -9,8 +9,9 @@
 
 #include <iostream>
 #include <stdio.h>
-// #include <conio.h>
 #include <stdlib.h>
+#include <limits.h>
+#include <unistd.h>
 #include <experimental/filesystem>
 #include <thread>
 #include <atomic>
@@ -19,7 +20,6 @@
 #include <vector>
 #include <string.h>
 #include <math.h>
-
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>

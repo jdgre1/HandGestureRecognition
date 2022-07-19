@@ -7,7 +7,7 @@
 #define HAS_CUDA 1
 #define IMG_WIDTH 640
 #define IMG_HEIGHT 480
-
+static const cv::Size IMAGE_SIZE(IMG_WIDTH, IMG_HEIGHT);
 
 
 class StereoCalibration 
@@ -27,17 +27,16 @@ class StereoCalibration
 		void calibrate_stereo();
 		bool verify_checkerboard_corners(cv::Mat& frame0, cv::Mat& frame1); 
 		bool initialise_cameras(); 
-		void saveCameraCalibParams();
-		void loadCameraCalibParams();
+		void save_camera_calib_params();
+		void load_camera_calib_params();
 		void process_checkerboard_corners(bool draw_corners);
-
+		void test_calibration();
 
 		struct StereoParams 
 		{
 			// Checkerboard size
 			// 
     		int CHECKERBOARD[2]{ 7,10 };
-
 
 			// Files to store parameters
 			std::string pre_stereo_calib_file;
@@ -64,26 +63,9 @@ class StereoCalibration
 			// Individual camera calibration parameters
 			cv::Mat mtxL, distL, R_L, T_L;
 			cv::Mat mtxR, distR, R_R, T_R;
-			cv::Mat new_mtxL, new_mtxR;
-
-			// Reprojection errors for both cameras:
-			double reproj_l, reproj_r;
-			
-			// Stereocalibration rms:
-			double stereo_rms;
-
-			// Transformation between the two cameras and calculation of Essential and Fundamental matrices
-			cv::Mat Rot, Trns, Emat, Fmat;
-
-			// Rectification parameters
-			cv::Mat rect_l, rect_r, proj_mat_l, proj_mat_r, Q;
-
-			// Compute mapping required to obtain the undistorted rectified stereo image pair
-			cv::Mat Left_Stereo_Map1, Left_Stereo_Map2;
-			cv::Mat Right_Stereo_Map1, Right_Stereo_Map2;
+			cv::Mat new_mtxL, new_mtxR, Rot, Trns;
 		};
 	
-		
 	private:
 
 		int m_deviceID;						

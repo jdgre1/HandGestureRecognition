@@ -1,9 +1,6 @@
 
 #include <camera_calibration.h> 
-// #include <ros/ros.h>
-#include <iostream>
-#include <limits.h>
-#include <unistd.h>
+
 
 int main(int argc, char* argv[])
 {   
@@ -47,8 +44,8 @@ int main(int argc, char* argv[])
     nh.getParam("/camera_calibration/test_calibration", arg_str);
     if(arg_str.compare("true") == 0) 
     {   
-        ROS_INFO("Testing calibration via live-image feed");
-        // s.test_calibration();
+        ROS_INFO("Testing calibration via live-image feed.\nRectifying image and undistorting.");
+        s.test_calibration();
     }
 
     // Spin

@@ -274,49 +274,51 @@ void StereoCalibration::process_checkerboard_corners(bool draw_corners)
     return;
 }
 
+
 void StereoCalibration::calibrate_single_cameras(bool save_params, bool draw_corners)
 {
-    cv::Size image_size(IMG_WIDTH, IMG_HEIGHT);
+    
     process_checkerboard_corners(draw_corners);
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Single left camera calibration: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     fprintf(stderr, "Processing left camera calibration...\n");
     cv::Mat rvecs, tvecs;
-    double rms = cv::calibrateCamera(m_stereo_params.objpointsLeft, m_stereo_params.imgpointsLeft, image_size, m_stereo_params.mtxL, m_stereo_params.distL, rvecs, tvecs);
+    double rms = cv::calibrateCamera(m_stereo_params.objpointsLeft, m_stereo_params.imgpointsLeft, IMAGE_SIZE, m_stereo_params.mtxL, m_stereo_params.distL, rvecs, tvecs);
     std::cout << "Left camera calibration rms of " << rms << std::endl;
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Single right camera calibration: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     fprintf(stderr, "Processing right camera calibration...\n");
-    rms = cv::calibrateCamera(m_stereo_params.objpointsRight, m_stereo_params.imgpointsRight, image_size, m_stereo_params.mtxR, m_stereo_params.distR, rvecs, tvecs);
+    rms = cv::calibrateCamera(m_stereo_params.objpointsRight, m_stereo_params.imgpointsRight, IMAGE_SIZE, m_stereo_params.mtxR, m_stereo_params.distR, rvecs, tvecs);
     std::cout << "Right camera calibration rms of " << rms << std::endl;
 
-    if(save_params) saveCameraCalibParams();
+    if(save_params) save_camera_calib_params();
 
     return;
 }
 
+
 void StereoCalibration::calibrate_stereo()
 {
-    loadCameraCalibParams(); 
-    cv::Size image_size(IMG_WIDTH, IMG_HEIGHT);
-    cv::Mat new_mtxL = cv::getOptimalNewCameraMatrix(m_stereo_params.mtxL, m_stereo_params.distL, image_size, 1, image_size, 0);
-    cv::Mat new_mtxR = cv::getOptimalNewCameraMatrix(m_stereo_params.mtxR, m_stereo_params.distR, image_size, 1, image_size, 0);
+    load_camera_calib_params(); 
+    
+    m_stereo_params.new_mtxL = cv::getOptimalNewCameraMatrix(m_stereo_params.mtxL, m_stereo_params.distL, IMAGE_SIZE, 1, IMAGE_SIZE, 0);
+    m_stereo_params.new_mtxR = cv::getOptimalNewCameraMatrix(m_stereo_params.mtxR, m_stereo_params.distR, IMAGE_SIZE, 1, IMAGE_SIZE, 0);
 
-    cv::Mat Rot, Trns, Emat, Fmat;
+    cv::Mat Emat, Fmat;
     int flag = 0;
     flag |= cv::CALIB_FIX_INTRINSIC;
 
-    double stereo_rms = cv::stereoCalibrate(m_stereo_params.objpointsRight, m_stereo_params.imgpointsLeft, m_stereo_params.imgpointsRight, new_mtxL, 
-                                                m_stereo_params.distL, new_mtxR, m_stereo_params.distR, image_size, Rot, Trns, Emat, Fmat, flag,
+    double stereo_rms = cv::stereoCalibrate(m_stereo_params.objpointsRight, m_stereo_params.imgpointsLeft, m_stereo_params.imgpointsRight,  m_stereo_params.new_mtxL, 
+                                                m_stereo_params.distL, m_stereo_params.new_mtxR, m_stereo_params.distR, IMAGE_SIZE, m_stereo_params.Rot, m_stereo_params.Trns, Emat, Fmat, flag,
                                                 cv::TermCriteria(cv::TermCriteria::MAX_ITER + cv::TermCriteria::EPS, 30, 1e-6));
     std::cout << "stereo_rms: " << stereo_rms << std::endl;
     return;
 }
 
 // Save the parameters obtained from successful calibration:
-void StereoCalibration::saveCameraCalibParams() 
+void StereoCalibration::save_camera_calib_params() 
 {
     cv::FileStorage fs(m_stereo_params.pre_stereo_calib_file, cv::FileStorage::WRITE);
     fs << "imgpointsL" << m_stereo_params.imgpointsLeft;
@@ -329,7 +331,8 @@ void StereoCalibration::saveCameraCalibParams()
     return;
 }
 
-void StereoCalibration::loadCameraCalibParams() 
+
+void StereoCalibration::load_camera_calib_params() 
 {
     cv::FileStorage fs(m_stereo_params.pre_stereo_calib_file, cv::FileStorage::READ);
     fs["imgpointsL"] >> m_stereo_params.imgpointsLeft;
@@ -341,3 +344,43 @@ void StereoCalibration::loadCameraCalibParams()
     fs["mtxR"] >> m_stereo_params.mtxR;
     return;
 }
+
+
+void StereoCalibration::test_calibration()
+{   
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Load Test Images: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    cv::Mat img_left = cv::imread(m_frames_save_dir + "0/frame0_1.png");
+    cv::Mat img_right = cv::imread(m_frames_save_dir + "1/frame1_1.png");
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Stereo Calibration: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    calibrate_stereo();
+   
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Stereo Rectification: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    cv::Mat rect_l, rect_r, proj_mat_l, proj_mat_r, Q;
+    cv::stereoRectify( m_stereo_params.new_mtxL, m_stereo_params.distL, m_stereo_params.new_mtxR, m_stereo_params.distR, IMAGE_SIZE, m_stereo_params.Rot, 
+                        m_stereo_params.Trns, rect_l, rect_r, proj_mat_l, proj_mat_r, Q, 1);
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Stereo Undistort: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    cv::Mat left_stereo_map1, left_stereo_map2, right_stereo_map1, right_stereo_map2;
+    cv::initUndistortRectifyMap( m_stereo_params.new_mtxL, m_stereo_params.distL, rect_l, proj_mat_l, IMAGE_SIZE, CV_16SC2, left_stereo_map1, left_stereo_map2);
+    cv::initUndistortRectifyMap(m_stereo_params.new_mtxR, m_stereo_params.distR, rect_r, proj_mat_r, IMAGE_SIZE, CV_16SC2, right_stereo_map1, right_stereo_map2);
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Stereo Remap: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    cv::Mat left_nice, right_nice;
+    cv::remap(img_left, left_nice, left_stereo_map1, left_stereo_map2, cv::INTER_LANCZOS4, cv::BORDER_CONSTANT, 0);
+    cv::remap(img_right, right_nice, right_stereo_map1, right_stereo_map2, cv::INTER_LANCZOS4, cv::BORDER_CONSTANT, 0);
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    cv::imshow("Left image before rectification", img_left);
+    cv::imshow("Right image before rectification", img_right);
+
+    cv::imshow("Left image after rectification", left_nice);
+    cv::imshow("Right image after rectification", right_nice);
+
+    cv::waitKey();
+    ROS_INFO("Test complete!\n");
+
+}
+
