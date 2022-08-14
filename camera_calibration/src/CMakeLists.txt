@@ -2,7 +2,7 @@
 
 ### ~~~~~~~~~~~~ BUILD RELEVANT LIBRARIES ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-add_library(CalibrationLibrary STATIC camera_calibration.cpp ../include/camera_calibration.h)
+add_library(CalibrationLibrary SHARED camera_calibration.cpp ../include/camera_calibration.h)
 target_link_libraries(CalibrationLibrary ${OpenCV_LIBS} ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 target_precompile_headers(CalibrationLibrary PRIVATE ../include/pch.h)
 

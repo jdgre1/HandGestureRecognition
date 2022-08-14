@@ -72,7 +72,6 @@ int process_params()
     StereoCalibration s;
     
 
-    // if(strcasecmp(nh.getParam("/camera_calibration/check_frame_rate", "true") == 0)
     if(parameter_true("check_frame_rate", nh, arg_str))
     {   
         ROS_INFO("Checking frame rate");
@@ -81,7 +80,6 @@ int process_params()
     }
 
 
-    // if(strcasecmp(nh.getParam("/camera_calibration/record_save", "true") == 0)
     if(parameter_true("record_save", nh, arg_str))
     {
         ROS_INFO("Capture images for calibration");
@@ -89,7 +87,6 @@ int process_params()
     }
 
 
-    // if(strcasecmp(nh.getParam("/camera_calibration/calibrate_single_cameras", "true") == 0)
     if(parameter_true("calibrate_single_cameras", nh, arg_str))
     {   
         ROS_INFO("Calibrating cameras for stereovision");
@@ -99,7 +96,6 @@ int process_params()
     }
 
 
-    // if(strcasecmp(nh.getParam("/camera_calibration/calibrate_stereo", "true") == 0)
     if(parameter_true("calibrate_stereo", nh, arg_str))
     {   
         ROS_INFO("Calibrating cameras for stereovision");
@@ -107,7 +103,6 @@ int process_params()
     }
 
 
-    // if(strcasecmp(nh.getParam("/camera_calibration/test_calibration", "true") == 0)
     if(parameter_true("test_calibration", nh, arg_str))
     {   
         ROS_INFO("Testing calibration via live-image feed.\nRectifying image and undistorting.");
@@ -115,18 +110,18 @@ int process_params()
     }
 
 
-    // if(strcasecmp(nh.getParam("/camera_calibration/run_depth_map", "true") == 0)
     if(parameter_true("run_depth_map", nh, arg_str))
     {   
         ROS_INFO("Creating live depth-map.");
         s.create_live_depth_map();
     }
+    return 0;
 
 }
 
 
 bool parameter_true(std::string param, ros::NodeHandle& nh, std::string& arg_str) 
 {   
-    nh.getParam("/camera_calibration/check_frame_rate", arg_str);
+    nh.getParam("/camera_calibration/"  + param, arg_str);
     return arg_str == "true";
 }
