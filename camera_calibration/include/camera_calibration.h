@@ -96,9 +96,9 @@ class StereoCalibration
 
 			int min_disparity = 97;
 			int num_disparities = 54;
-			int blockSize = 11;
-			int disp12MaxDiff = 1;
-			int uniquenessRatio = 30;
+			int blocksize = 11;
+			int disp12_max_diff = 1;
+			int uniqueness_ratio = 30;
 			int speckle_window_size = 37;
 			int speckle_range = 20;
 

@@ -399,9 +399,9 @@ void StereoCalibration::createTrackbars()
     cv::namedWindow(m_depthmapData.window_name, cv::WINDOW_AUTOSIZE);
     cv::createTrackbar(m_depthmapData.min_disparity_title, m_depthmapData.window_name, &m_depthmapData.min_disparity, m_depthmapData.mindisparity_limit, onTrackbar);
     cv::createTrackbar(m_depthmapData.num_disparities_title, m_depthmapData.window_name, &m_depthmapData.num_disparities, m_depthmapData.numdisparities_max, onTrackbar);
-    cv::createTrackbar(m_depthmapData.block_size_title, m_depthmapData.window_name, &m_depthmapData.blockSize, m_depthmapData.blocksize_max, onTrackbar);
-    cv::createTrackbar(m_depthmapData.disp12_max_diff_title, m_depthmapData.window_name, &m_depthmapData.disp12MaxDiff, m_depthmapData.disp12maxdiff_max, onTrackbar);
-    cv::createTrackbar(m_depthmapData.uniqueness_ratio_title, m_depthmapData.window_name, &m_depthmapData.uniquenessRatio, m_depthmapData.uniquenessratio_max, onTrackbar);
+    cv::createTrackbar(m_depthmapData.block_size_title, m_depthmapData.window_name, &m_depthmapData.blocksize, m_depthmapData.blocksize_max, onTrackbar);
+    cv::createTrackbar(m_depthmapData.disp12_max_diff_title, m_depthmapData.window_name, &m_depthmapData.disp12_max_diff, m_depthmapData.disp12maxdiff_max, onTrackbar);
+    cv::createTrackbar(m_depthmapData.uniqueness_ratio_title, m_depthmapData.window_name, &m_depthmapData.uniqueness_ratio, m_depthmapData.uniquenessratio_max, onTrackbar);
     cv::createTrackbar(m_depthmapData.speckle_window_size_title, m_depthmapData.window_name, &m_depthmapData.prev_speckle_window_size, m_depthmapData.prev_speckle_window_size, onTrackbar);
     cv::createTrackbar(m_depthmapData.speckle_range_title, m_depthmapData.window_name, &m_depthmapData.speckle_range, m_depthmapData.specklerange_max, onTrackbar);
 }
@@ -412,8 +412,8 @@ void StereoCalibration::createLiveDepthMap()
     rectifyAndUndistort();
     
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Stereo SGBM Initialisation: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    m_depthmapData.stereo = cv::StereoSGBM::create(m_depthmapData.min_disparity, m_depthmapData.num_disparities, m_depthmapData.blockSize, m_depthmapData.disp12MaxDiff,
-        m_depthmapData.uniquenessRatio, m_depthmapData.prev_speckle_window_size, m_depthmapData.speckle_range);
+    m_depthmapData.stereo = cv::StereoSGBM::create(m_depthmapData.min_disparity, m_depthmapData.num_disparities, m_depthmapData.blocksize, m_depthmapData.disp12_max_diff,
+        m_depthmapData.uniqueness_ratio, m_depthmapData.prev_speckle_window_size, m_depthmapData.speckle_range);
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Open Cameras and Read Images: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -465,14 +465,14 @@ void StereoCalibration::createLiveDepthMap()
                 cv::FileStorage fs(stereo_sgbm_params_file, cv::FileStorage::WRITE);
                 fs << "min_disparity" << m_depthmapData.min_disparity;
                 fs << "num_disparities" << m_depthmapData.num_disparities;
-                fs << "blockSize" << m_depthmapData.blockSize;
-                fs << "disp12MaxDiff" << m_depthmapData.disp12MaxDiff;
-                fs << "uniquenessRatio" << m_depthmapData.uniquenessRatio;
+                fs << "blocksize" << m_depthmapData.blocksize;
+                fs << "disp12_max_diff" << m_depthmapData.disp12_max_diff;
+                fs << "uniqueness_ratio" << m_depthmapData.uniqueness_ratio;
                 fs << "prev_speckle_window_size" << m_depthmapData.prev_speckle_window_size;
                 fs << "speckle_range" << m_depthmapData.speckle_range;
 
-                /*, m_depthmapData.min_disparity, m_depthmapData.num_disparities, m_depthmapData.blockSize, m_depthmapData.disp12MaxDiff,
-    m_depthmapData.uniquenessRatio, m_depthmapData.prev_speckle_window_size, m_depthmapData.speckle_range*/
+                /*, m_depthmapData.min_disparity, m_depthmapData.num_disparities, m_depthmapData.blocksize, m_depthmapData.disp12_max_diff,
+    m_depthmapData.uniqueness_ratio, m_depthmapData.prev_speckle_window_size, m_depthmapData.speckle_range*/
                 cv::destroyAllWindows();
                 break;
                 //case ((int)('n')):
@@ -501,8 +501,8 @@ void StereoCalibration::createLiveDepthMap()
 
     }
     // Creating an object of StereoSGBM algorithm
-   /* cv::Ptr<cv::StereoSGBM> stereo = cv::StereoSGBM::create(min_disparity, num_disparities, blockSize, disp12MaxDiff,
-        uniquenessRatio, prev_speckle_window_size, speckle_range);*/
+   /* cv::Ptr<cv::StereoSGBM> stereo = cv::StereoSGBM::create(min_disparity, num_disparities, blocksize, disp12_max_diff,
+        uniqueness_ratio, prev_speckle_window_size, speckle_range);*/
 
         // Calculating disparith using the StereoSGBM algorithm
 }
@@ -513,8 +513,8 @@ void StereoCalibration::onTrackbar(int, void* userdata)
     
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Update Stereo Params: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     depthmap_data->stereo = cv::StereoSGBM::create(depthmap_data->min_disparity, 
-                                                depthmap_data->num_disparities, depthmap_data->blockSize, 
-                                                depthmap_data->disp12MaxDiff, depthmap_data->uniquenessRatio, 
+                                                depthmap_data->num_disparities, depthmap_data->blocksize, 
+                                                depthmap_data->disp12_max_diff, depthmap_data->uniqueness_ratio, 
                                                 depthmap_data->prev_speckle_window_size, depthmap_data->speckle_range);
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -522,8 +522,8 @@ void StereoCalibration::onTrackbar(int, void* userdata)
     std::cout << "Calculating new parameters:" << std::endl;
 
 
-    if (depthmap_data->blockSize == 0) depthmap_data->blockSize = 1;
-    if (depthmap_data->uniquenessRatio == 0) depthmap_data->uniquenessRatio = 1;
+    if (depthmap_data->blocksize == 0) depthmap_data->blocksize = 1;
+    if (depthmap_data->uniqueness_ratio == 0) depthmap_data->uniqueness_ratio = 1;
     if (depthmap_data->prev_speckle_window_size == 0) depthmap_data->prev_speckle_window_size = 1;
     if (depthmap_data->speckle_range == 0) depthmap_data->speckle_range = 1;
 
@@ -538,9 +538,9 @@ void StereoCalibration::onTrackbar(int, void* userdata)
 
         depthmap_data->prev_min_disparity = depthmap_data->min_disparity;
         depthmap_data->prev_num_disparities = depthmap_data->num_disparities;
-        depthmap_data->prev_blocksize = depthmap_data->blockSize;
-        depthmap_data->prev_disp12_max_diff = depthmap_data->disp12MaxDiff;
-        depthmap_data->prev_uniqueness_ratio = depthmap_data->uniquenessRatio;
+        depthmap_data->prev_blocksize = depthmap_data->blocksize;
+        depthmap_data->prev_disp12_max_diff = depthmap_data->disp12_max_diff;
+        depthmap_data->prev_uniqueness_ratio = depthmap_data->uniqueness_ratio;
         depthmap_data->prev_speckle_window_size = depthmap_data->prev_speckle_window_size;
         depthmap_data->prev_speckle_range = depthmap_data->speckle_range;
 
@@ -558,9 +558,9 @@ void StereoCalibration::onTrackbar(int, void* userdata)
         fprintf(stderr, "Last value set threw an exception");
         depthmap_data->min_disparity = depthmap_data->prev_min_disparity;
         depthmap_data->num_disparities = depthmap_data->prev_num_disparities;
-        depthmap_data->blockSize = depthmap_data->prev_blocksize;
-        depthmap_data->disp12MaxDiff = depthmap_data->prev_disp12_max_diff;
-        depthmap_data->uniquenessRatio = depthmap_data->prev_uniqueness_ratio;
+        depthmap_data->blocksize = depthmap_data->prev_blocksize;
+        depthmap_data->disp12_max_diff = depthmap_data->prev_disp12_max_diff;
+        depthmap_data->uniqueness_ratio = depthmap_data->prev_uniqueness_ratio;
         depthmap_data->prev_speckle_window_size = depthmap_data->prev_speckle_window_size;
         depthmap_data->speckle_range = depthmap_data->prev_speckle_range;
     }
