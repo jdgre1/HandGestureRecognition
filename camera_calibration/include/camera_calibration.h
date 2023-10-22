@@ -21,20 +21,20 @@ class StereoCalibration
 		// Destructor
 		~StereoCalibration();
 
-		int check_frame_rate(int deviceID, int apiID);
-		void calibrate_single_cameras(bool save_params, bool draw_corners);
-		void capture_stereo_imgs_for_calibration();
-		void calibrate_stereo();
-		bool verify_checkerboard_corners(cv::Mat& frame0, cv::Mat& frame1); 
-		bool initialise_cameras(); 
-		void save_camera_calib_params();
-		void load_camera_calib_params();
-		void process_checkerboard_corners(bool draw_corners);
-		void rectify_and_undistort();
-		void test_calibration();
-		void create_live_depth_map();
-		void create_trackbars();
-		static void on_trackbar(int, void*);
+		int checkFrameRate(int deviceID, int apiID);
+		void calibrateSingleCameras(bool save_params, bool draw_corners);
+		void captureStereoImgsForCalibration();
+		void calibrateStereo();
+		bool verifyCheckerboardCorners(cv::Mat& frame0, cv::Mat& frame1); 
+		bool initialiseCameras(); 
+		void saveCameraCalibParams();
+		void loadCameraCalibParams();
+		void processCheckerboardCorners(bool draw_corners);
+		void rectifyAndUndistort();
+		void testCalibration();
+		void createLiveDepthMap();
+		void createTrackbars();
+		static void onTrackbar(int, void*);
 
 		struct StereoParams 
 		{
@@ -52,8 +52,8 @@ class StereoCalibration
 			std::vector<std::vector<cv::Point3f> > objpoints;
 
 			// Creating vector to store vectors of 2D points for each checkerboard image
-			std::vector<std::vector<cv::Vec2f> > imgpointsLeft, imgpointsRight;  
-			std::vector<std::vector<cv::Vec3f> > objpointsLeft, objpointsRight;
+			std::vector<std::vector<cv::Vec2f> > imgpoints_left, imgpoints_right;  
+			std::vector<std::vector<cv::Vec3f> > objpoints_left, objpoints_right;
 
 			// Image size for single-camera calibration method
 			int img_size_rows, img_size_cols;
@@ -99,26 +99,26 @@ class StereoCalibration
 			int blockSize = 11;
 			int disp12MaxDiff = 1;
 			int uniquenessRatio = 30;
-			int speckleWindowSize = 37;
-			int speckleRange = 20;
+			int speckle_window_size = 37;
+			int speckle_range = 20;
 
-			int prev_minDisparity = 0;
-			int prev_numDisparities = 64;
-			int prev_blockSize = 8;
-			int prev_disp12MaxDiff = 1;
-			int prev_uniquenessRatio = 10;
-			int prev_speckleWindowSize = 10;
-			int prev_speckleRange = 8;
+			int prev_min_disparity = 0;
+			int prev_num_disparities = 64;
+			int prev_blocksize = 8;
+			int prev_disp12_max_diff = 1;
+			int prev_uniqueness_ratio = 10;
+			int prev_speckle_window_size = 10;
+			int prev_speckle_range = 8;
 
-			cv::Mat Left_nice, Right_nice, dst, orig_frame0, orig_frame1;
-			cv::Mat Left_Stereo_Map1, Left_Stereo_Map2;
-			cv::Mat Right_Stereo_Map1, Right_Stereo_Map2;
+			cv::Mat left_nice, right_nice, dst, orig_frame0, orig_frame1;
+			cv::Mat left_stereo_map1, left_stereo_map2;
+			cv::Mat right_stereo_map1, right_stereo_map2;
 			
 			cv::String window_name = "Depth Map";
 			cv::String min_disparity_title = "min disparity";
 			cv::String num_disparities_title = "num disparities";
 			cv::String block_size_title = "block size";
-			cv::String disp12MaxDiff_title = "disp12MaxDiff";
+			cv::String disp12_max_diff_title = "disp12MaxDiff";
 			cv::String uniqueness_ratio_title = "uniqueness ratio";
 			cv::String speckle_window_size_title = "speckleWindowSize";
 			cv::String speckle_range_title = "speckleRange";
@@ -154,11 +154,11 @@ class StereoCalibration
 		int m_deviceID1 = 2;
 		int m_apiID0 = cv::CAP_ANY;		// 0 = autodetect default API,	1 = open other camera
 		int m_apiID1 = cv::CAP_ANY;		// 0 = autodetect default API,	1 = open other camer
-		bool m_reload_params = false;
-		bool m_avoid_saving_and_loading = true;
+		bool m_reloadParams = false;
+		bool m_avoidSavingAndLoading = true;
 
-		StereoParams m_stereo_params;
-		DepthmapParams m_depthmap_data;
+		StereoParams m_stereoParams;
+		DepthmapParams m_depthmapData;
 		
 		// Test calibration by undistorting images
 		int m_num_imgs_to_test = 100;

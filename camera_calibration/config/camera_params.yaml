@@ -1,6 +1,6 @@
-camera_calibration/check_frame_rate: "false"
-camera_calibration/record_save: "false"
-camera_calibration/calibrate_single_cameras: "false"
-camera_calibration/calibrate_stereo: "false"
-camera_calibration/test_calibration: "true"
-camera_calibration/run_depth_map: "false"
+camera_calibration/check_frame_rate: false
+camera_calibration/record_save: false
+camera_calibration/calibrate_single_cameras: false
+camera_calibration/calibrate_stereo: false
+camera_calibration/test_calibration: true
+camera_calibration/run_depth_map: false

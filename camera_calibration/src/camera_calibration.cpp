@@ -8,7 +8,7 @@ StereoCalibration::StereoCalibration()
 
 StereoCalibration::~StereoCalibration() {}
 
-int StereoCalibration::check_frame_rate(int deviceID, int apiID) 
+int StereoCalibration::checkFrameRate(int deviceID, int apiID) 
 {
     // open selected camera using selected API
 	cv::VideoCapture v_cap0;
@@ -69,7 +69,7 @@ int StereoCalibration::check_frame_rate(int deviceID, int apiID)
 }
 
 
-bool StereoCalibration::verify_checkerboard_corners(cv::Mat& frame0, cv::Mat& frame1) 
+bool StereoCalibration::verifyCheckerboardCorners(cv::Mat& frame0, cv::Mat& frame1) 
 {
     /* Finding checker board corners: If desired number of corners are found in the image then success = true  */
     
@@ -133,7 +133,7 @@ bool StereoCalibration::verify_checkerboard_corners(cv::Mat& frame0, cv::Mat& fr
 }
 
 
-bool StereoCalibration::initialise_cameras() 
+bool StereoCalibration::initialiseCameras() 
 {
     // Open both cameras:
     m_cap0.open(m_deviceID0, cv::CAP_ANY);
@@ -156,7 +156,7 @@ bool StereoCalibration::initialise_cameras()
 }
 
 
-void StereoCalibration::capture_stereo_imgs_for_calibration() 
+void StereoCalibration::captureStereoImgsForCalibration() 
 {
     // temp variables
     cv::Mat frame0, frame1;
@@ -167,7 +167,7 @@ void StereoCalibration::capture_stereo_imgs_for_calibration()
     time_t curr_time, prev;
 
     // start cameras
-    if (initialise_cameras()) 
+    if (initialiseCameras()) 
     {
         // Start time
         time(&curr_time);
@@ -203,7 +203,7 @@ void StereoCalibration::capture_stereo_imgs_for_calibration()
 }
 
 
-void StereoCalibration::process_checkerboard_corners(bool draw_corners)
+void StereoCalibration::processCheckerboardCorners(bool draw_corners)
 {
       // Image Data
     int total_photos = 50;
@@ -275,10 +275,10 @@ void StereoCalibration::process_checkerboard_corners(bool draw_corners)
 }
 
 
-void StereoCalibration::calibrate_single_cameras(bool save_params, bool draw_corners)
+void StereoCalibration::calibrateSingleCameras(bool save_params, bool draw_corners)
 {
     
-    process_checkerboard_corners(draw_corners);
+    processCheckerboardCorners(draw_corners);
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Single left camera calibration: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -293,15 +293,15 @@ void StereoCalibration::calibrate_single_cameras(bool save_params, bool draw_cor
     rms = cv::calibrateCamera(m_stereo_params.objpointsRight, m_stereo_params.imgpointsRight, IMAGE_SIZE, m_stereo_params.mtxR, m_stereo_params.distR, rvecs, tvecs);
     std::cout << "Right camera calibration rms of " << rms << std::endl;
 
-    if(save_params) save_camera_calib_params();
+    if(save_params) saveCameraCalibParams();
 
     return;
 }
 
 
-void StereoCalibration::calibrate_stereo()
+void StereoCalibration::calibrateStereo()
 {
-    load_camera_calib_params(); 
+    loadCameraCalibParams(); 
     
     m_stereo_params.new_mtxL = cv::getOptimalNewCameraMatrix(m_stereo_params.mtxL, m_stereo_params.distL, IMAGE_SIZE, 1, IMAGE_SIZE, 0);
     m_stereo_params.new_mtxR = cv::getOptimalNewCameraMatrix(m_stereo_params.mtxR, m_stereo_params.distR, IMAGE_SIZE, 1, IMAGE_SIZE, 0);
@@ -318,7 +318,7 @@ void StereoCalibration::calibrate_stereo()
 }
 
 // Save the parameters obtained from successful calibration:
-void StereoCalibration::save_camera_calib_params() 
+void StereoCalibration::saveCameraCalibParams() 
 {
     cv::FileStorage fs(m_stereo_params.pre_stereo_calib_file, cv::FileStorage::WRITE);
     fs << "imgpointsL" << m_stereo_params.imgpointsLeft;
@@ -332,7 +332,7 @@ void StereoCalibration::save_camera_calib_params()
 }
 
 
-void StereoCalibration::load_camera_calib_params() 
+void StereoCalibration::loadCameraCalibParams() 
 {
     cv::FileStorage fs(m_stereo_params.pre_stereo_calib_file, cv::FileStorage::READ);
     fs["imgpointsL"] >> m_stereo_params.imgpointsLeft;
@@ -345,7 +345,7 @@ void StereoCalibration::load_camera_calib_params()
     return;
 }
 
-void StereoCalibration::rectify_and_undistort()
+void StereoCalibration::rectifyAndUndistort()
 {
      // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Stereo Rectification: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     cv::Mat rect_l, rect_r, proj_mat_l, proj_mat_r, Q;
@@ -360,7 +360,7 @@ void StereoCalibration::rectify_and_undistort()
 
 }
 
-void StereoCalibration::test_calibration()
+void StereoCalibration::testCalibration()
 {   
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Load Test Images: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -369,11 +369,11 @@ void StereoCalibration::test_calibration()
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Stereo Calibration: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     
-    calibrate_stereo();
+    calibrateStereo();
    
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Stereo Rectification / Undistortion: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     
-    rectify_and_undistort();
+    rectifyAndUndistort();
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Stereo Remap: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
@@ -394,22 +394,22 @@ void StereoCalibration::test_calibration()
 
 }
 
-void StereoCalibration::create_trackbars()
+void StereoCalibration::createTrackbars()
 {
     cv::namedWindow(m_depthmap_data.window_name, cv::WINDOW_AUTOSIZE);
-    cv::createTrackbar(m_depthmap_data.min_disparity_title, m_depthmap_data.window_name, &m_depthmap_data.minDisparity, m_depthmap_data.mindisparity_max, on_trackbar);
-    cv::createTrackbar(m_depthmap_data.num_disparities_title, m_depthmap_data.window_name, &m_depthmap_data.numDisparities, m_depthmap_data.numdisparities_max, on_trackbar);
-    cv::createTrackbar(m_depthmap_data.block_size_title, m_depthmap_data.window_name, &m_depthmap_data.blockSize, m_depthmap_data.blocksize_max, on_trackbar);
-    cv::createTrackbar(m_depthmap_data.disp12MaxDiff_title, m_depthmap_data.window_name, &m_depthmap_data.disp12MaxDiff, m_depthmap_data.disp12maxdiff_max, on_trackbar);
-    cv::createTrackbar(m_depthmap_data.uniqueness_ratio_title, m_depthmap_data.window_name, &m_depthmap_data.uniquenessRatio, m_depthmap_data.uniquenessratio_max, on_trackbar);
-    cv::createTrackbar(m_depthmap_data.speckle_window_size_title, m_depthmap_data.window_name, &m_depthmap_data.speckleWindowSize, m_depthmap_data.specklewindowsize_max, on_trackbar);
-    cv::createTrackbar(m_depthmap_data.speckle_range_title, m_depthmap_data.window_name, &m_depthmap_data.speckleRange, m_depthmap_data.specklerange_max, on_trackbar);
+    cv::createTrackbar(m_depthmap_data.min_disparity_title, m_depthmap_data.window_name, &m_depthmap_data.minDisparity, m_depthmap_data.mindisparity_max, onTrackbar);
+    cv::createTrackbar(m_depthmap_data.num_disparities_title, m_depthmap_data.window_name, &m_depthmap_data.numDisparities, m_depthmap_data.numdisparities_max, onTrackbar);
+    cv::createTrackbar(m_depthmap_data.block_size_title, m_depthmap_data.window_name, &m_depthmap_data.blockSize, m_depthmap_data.blocksize_max, onTrackbar);
+    cv::createTrackbar(m_depthmap_data.disp12MaxDiff_title, m_depthmap_data.window_name, &m_depthmap_data.disp12MaxDiff, m_depthmap_data.disp12maxdiff_max, onTrackbar);
+    cv::createTrackbar(m_depthmap_data.uniqueness_ratio_title, m_depthmap_data.window_name, &m_depthmap_data.uniquenessRatio, m_depthmap_data.uniquenessratio_max, onTrackbar);
+    cv::createTrackbar(m_depthmap_data.speckle_window_size_title, m_depthmap_data.window_name, &m_depthmap_data.speckleWindowSize, m_depthmap_data.specklewindowsize_max, onTrackbar);
+    cv::createTrackbar(m_depthmap_data.speckle_range_title, m_depthmap_data.window_name, &m_depthmap_data.speckleRange, m_depthmap_data.specklerange_max, onTrackbar);
 }
 
-void StereoCalibration::create_live_depth_map()
+void StereoCalibration::createLiveDepthMap()
 {
-    calibrate_stereo();
-    rectify_and_undistort();
+    calibrateStereo();
+    rectifyAndUndistort();
     
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Stereo SGBM Initialisation: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     m_depthmap_data.stereo = cv::StereoSGBM::create(m_depthmap_data.minDisparity, m_depthmap_data.numDisparities, m_depthmap_data.blockSize, m_depthmap_data.disp12MaxDiff,
@@ -421,7 +421,7 @@ void StereoCalibration::create_live_depth_map()
     bool set_depth_params = true;
     cv::Mat disp;
 
-    if (!initialise_cameras()) return;
+    if (!initialiseCameras()) return;
 
     while (1)
     {
@@ -450,7 +450,7 @@ void StereoCalibration::create_live_depth_map()
 
         if (set_depth_params)
         {
-            create_trackbars();
+            createTrackbars();
 
             int key = cv::waitKey();
 
@@ -507,7 +507,7 @@ void StereoCalibration::create_live_depth_map()
         // Calculating disparith using the StereoSGBM algorithm
 }
 
-void StereoCalibration::on_trackbar(int, void* userdata)
+void StereoCalibration::onTrackbar(int, void* userdata)
 {   
     DepthmapParams* depthmap_data = reinterpret_cast<DepthmapParams*>(userdata);
     
