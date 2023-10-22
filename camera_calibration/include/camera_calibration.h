@@ -74,7 +74,7 @@ class StereoCalibration
 
 		struct DepthmapParams
 		{
-			const int mindisparity_max = 100;
+			const int mindisparity_limit = 100;
 			const int numdisparities_max = 100;
 			const int blocksize_max = 11;
 			const int disp12maxdiff_max = 2;
@@ -94,8 +94,8 @@ class StereoCalibration
 			int speckleWindowSize = 36;
 			int speckleRange = 7;*/
 
-			int minDisparity = 97;
-			int numDisparities = 54;
+			int min_disparity = 97;
+			int num_disparities = 54;
 			int blockSize = 11;
 			int disp12MaxDiff = 1;
 			int uniquenessRatio = 30;

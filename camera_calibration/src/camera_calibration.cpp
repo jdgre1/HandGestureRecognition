@@ -3,7 +3,7 @@
 StereoCalibration::StereoCalibration() 
 {
     m_frames_save_dir = ros::package::getPath("camera_calibration") + "/data/";
-    m_stereo_params.pre_stereo_calib_file = ros::package::getPath("camera_calibration") + "/config/pre_stereo_calib_file.xml";
+    m_stereoParams.pre_stereo_calib_file = ros::package::getPath("camera_calibration") + "/config/pre_stereo_calib_file.xml";
 };
 
 StereoCalibration::~StereoCalibration() {}
@@ -76,10 +76,10 @@ bool StereoCalibration::verifyCheckerboardCorners(cv::Mat& frame0, cv::Mat& fram
     // Defining the dimensions of checkerboard
     int CHECKERBOARD[2]{ 7,10 };
 
-    if (m_stereo_params.objp.size() == 0) 
+    if (m_stereoParams.objp.size() == 0) 
         for (int i{ 0 }; i < CHECKERBOARD[1]; i++)
             for (int j{ 0 }; j < CHECKERBOARD[0]; j++)
-                m_stereo_params.objp.push_back(cv::Point3f(j, i, 0));
+                m_stereoParams.objp.push_back(cv::Point3f(j, i, 0));
 
     cv::Mat gray0, gray1;
     std::vector<cv::Point2f> corner_pts0, corner_pts1;
@@ -188,7 +188,7 @@ void StereoCalibration::captureStereoImgsForCalibration()
             }
 
             time(&curr_time);
-            if ((curr_time - prev >= 1. / m_frame_rate) && verify_checkerboard_corners(frame0, frame1)) {
+            if ((curr_time - prev >= 1. / m_frame_rate) && verifyCheckerboardCorners(frame0, frame1)) {
                 frame_count++;
                 prev = curr_time;
                 std::string frame_num_str = std::to_string(frame_count);
@@ -257,12 +257,12 @@ void StereoCalibration::processCheckerboardCorners(bool draw_corners)
         cv::TermCriteria criteria(cv::TermCriteria::MAX_ITER + cv::TermCriteria::EPS, 30, 0.001);
         if (retL && retR)
         {
-            m_stereo_params.objpointsLeft.push_back(objp);
+            m_stereoParams.objpoints_left.push_back(objp);
             cv::cornerSubPix(grayL, cornersL, cv::Size(3, 3), cv::Size(-1, -1), criteria);
-            m_stereo_params.imgpointsLeft.push_back(cornersL);
-            m_stereo_params.objpointsRight.push_back(objp);
+            m_stereoParams.imgpoints_left.push_back(cornersL);
+            m_stereoParams.objpoints_right.push_back(objp);
             cv::cornerSubPix(grayR, cornersR, cv::Size(3, 3), cv::Size(-1, -1), criteria);
-            m_stereo_params.imgpointsRight.push_back(cornersR);
+            m_stereoParams.imgpoints_right.push_back(cornersR);
         }
         else
         {
@@ -284,13 +284,13 @@ void StereoCalibration::calibrateSingleCameras(bool save_params, bool draw_corne
 
     fprintf(stderr, "Processing left camera calibration...\n");
     cv::Mat rvecs, tvecs;
-    double rms = cv::calibrateCamera(m_stereo_params.objpointsLeft, m_stereo_params.imgpointsLeft, IMAGE_SIZE, m_stereo_params.mtxL, m_stereo_params.distL, rvecs, tvecs);
+    double rms = cv::calibrateCamera(m_stereoParams.objpoints_left, m_stereoParams.imgpoints_left, IMAGE_SIZE, m_stereoParams.mtxL, m_stereoParams.distL, rvecs, tvecs);
     std::cout << "Left camera calibration rms of " << rms << std::endl;
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Single right camera calibration: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     fprintf(stderr, "Processing right camera calibration...\n");
-    rms = cv::calibrateCamera(m_stereo_params.objpointsRight, m_stereo_params.imgpointsRight, IMAGE_SIZE, m_stereo_params.mtxR, m_stereo_params.distR, rvecs, tvecs);
+    rms = cv::calibrateCamera(m_stereoParams.objpoints_right, m_stereoParams.imgpoints_right, IMAGE_SIZE, m_stereoParams.mtxR, m_stereoParams.distR, rvecs, tvecs);
     std::cout << "Right camera calibration rms of " << rms << std::endl;
 
     if(save_params) saveCameraCalibParams();
@@ -303,15 +303,15 @@ void StereoCalibration::calibrateStereo()
 {
     loadCameraCalibParams(); 
     
-    m_stereo_params.new_mtxL = cv::getOptimalNewCameraMatrix(m_stereo_params.mtxL, m_stereo_params.distL, IMAGE_SIZE, 1, IMAGE_SIZE, 0);
-    m_stereo_params.new_mtxR = cv::getOptimalNewCameraMatrix(m_stereo_params.mtxR, m_stereo_params.distR, IMAGE_SIZE, 1, IMAGE_SIZE, 0);
+    m_stereoParams.new_mtxL = cv::getOptimalNewCameraMatrix(m_stereoParams.mtxL, m_stereoParams.distL, IMAGE_SIZE, 1, IMAGE_SIZE, 0);
+    m_stereoParams.new_mtxR = cv::getOptimalNewCameraMatrix(m_stereoParams.mtxR, m_stereoParams.distR, IMAGE_SIZE, 1, IMAGE_SIZE, 0);
 
     cv::Mat Emat, Fmat;
     int flag = 0;
     flag |= cv::CALIB_FIX_INTRINSIC;
 
-    double stereo_rms = cv::stereoCalibrate(m_stereo_params.objpointsRight, m_stereo_params.imgpointsLeft, m_stereo_params.imgpointsRight,  m_stereo_params.new_mtxL, 
-                                                m_stereo_params.distL, m_stereo_params.new_mtxR, m_stereo_params.distR, IMAGE_SIZE, m_stereo_params.Rot, m_stereo_params.Trns, Emat, Fmat, flag,
+    double stereo_rms = cv::stereoCalibrate(m_stereoParams.objpoints_right, m_stereoParams.imgpoints_left, m_stereoParams.imgpoints_right,  m_stereoParams.new_mtxL, 
+                                                m_stereoParams.distL, m_stereoParams.new_mtxR, m_stereoParams.distR, IMAGE_SIZE, m_stereoParams.Rot, m_stereoParams.Trns, Emat, Fmat, flag,
                                                 cv::TermCriteria(cv::TermCriteria::MAX_ITER + cv::TermCriteria::EPS, 30, 1e-6));
     std::cout << "stereo_rms: " << stereo_rms << std::endl;
     return;
@@ -320,28 +320,28 @@ void StereoCalibration::calibrateStereo()
 // Save the parameters obtained from successful calibration:
 void StereoCalibration::saveCameraCalibParams() 
 {
-    cv::FileStorage fs(m_stereo_params.pre_stereo_calib_file, cv::FileStorage::WRITE);
-    fs << "imgpointsL" << m_stereo_params.imgpointsLeft;
-    fs << "imgpointsR" << m_stereo_params.imgpointsRight;
-    fs << "objpointsRight" << m_stereo_params.objpointsRight;
-    fs << "distL" << m_stereo_params.distL;
-    fs << "distR" << m_stereo_params.distR;
-    fs << "mtxL" << m_stereo_params.mtxL;
-    fs << "mtxR" << m_stereo_params.mtxR;
+    cv::FileStorage fs(m_stereoParams.pre_stereo_calib_file, cv::FileStorage::WRITE);
+    fs << "imgpointsL" << m_stereoParams.imgpoints_left;
+    fs << "imgpointsR" << m_stereoParams.imgpoints_right;
+    fs << "objpoints_right" << m_stereoParams.objpoints_right;
+    fs << "distL" << m_stereoParams.distL;
+    fs << "distR" << m_stereoParams.distR;
+    fs << "mtxL" << m_stereoParams.mtxL;
+    fs << "mtxR" << m_stereoParams.mtxR;
     return;
 }
 
 
 void StereoCalibration::loadCameraCalibParams() 
 {
-    cv::FileStorage fs(m_stereo_params.pre_stereo_calib_file, cv::FileStorage::READ);
-    fs["imgpointsL"] >> m_stereo_params.imgpointsLeft;
-    fs["imgpointsR"] >> m_stereo_params.imgpointsRight;
-    fs["objpointsRight"] >> m_stereo_params.objpointsRight;
-    fs["distL"] >> m_stereo_params.distL;
-    fs["distR"] >> m_stereo_params.distR;
-    fs["mtxL"] >> m_stereo_params.mtxL;
-    fs["mtxR"] >> m_stereo_params.mtxR;
+    cv::FileStorage fs(m_stereoParams.pre_stereo_calib_file, cv::FileStorage::READ);
+    fs["imgpointsL"] >> m_stereoParams.imgpoints_left;
+    fs["imgpointsR"] >> m_stereoParams.imgpoints_right;
+    fs["objpoints_right"] >> m_stereoParams.objpoints_right;
+    fs["distL"] >> m_stereoParams.distL;
+    fs["distR"] >> m_stereoParams.distR;
+    fs["mtxL"] >> m_stereoParams.mtxL;
+    fs["mtxR"] >> m_stereoParams.mtxR;
     return;
 }
 
@@ -349,14 +349,14 @@ void StereoCalibration::rectifyAndUndistort()
 {
      // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Stereo Rectification: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     cv::Mat rect_l, rect_r, proj_mat_l, proj_mat_r, Q;
-    cv::stereoRectify( m_stereo_params.new_mtxL, m_stereo_params.distL, m_stereo_params.new_mtxR, m_stereo_params.distR, IMAGE_SIZE, m_stereo_params.Rot, 
-                        m_stereo_params.Trns, rect_l, rect_r, proj_mat_l, proj_mat_r, Q, 1);
+    cv::stereoRectify( m_stereoParams.new_mtxL, m_stereoParams.distL, m_stereoParams.new_mtxR, m_stereoParams.distR, IMAGE_SIZE, m_stereoParams.Rot, 
+                        m_stereoParams.Trns, rect_l, rect_r, proj_mat_l, proj_mat_r, Q, 1);
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Stereo Undistort: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    cv::initUndistortRectifyMap( m_stereo_params.new_mtxL, m_stereo_params.distL, rect_l, proj_mat_l, IMAGE_SIZE, CV_16SC2, 
-                                    m_stereo_params.left_stereo_map1, m_stereo_params.left_stereo_map2);
-    cv::initUndistortRectifyMap(m_stereo_params.new_mtxR, m_stereo_params.distR, rect_r, proj_mat_r, IMAGE_SIZE, CV_16SC2, 
-                                    m_stereo_params.right_stereo_map1, m_stereo_params.right_stereo_map2);
+    cv::initUndistortRectifyMap( m_stereoParams.new_mtxL, m_stereoParams.distL, rect_l, proj_mat_l, IMAGE_SIZE, CV_16SC2, 
+                                    m_stereoParams.left_stereo_map1, m_stereoParams.left_stereo_map2);
+    cv::initUndistortRectifyMap(m_stereoParams.new_mtxR, m_stereoParams.distR, rect_r, proj_mat_r, IMAGE_SIZE, CV_16SC2, 
+                                    m_stereoParams.right_stereo_map1, m_stereoParams.right_stereo_map2);
 
 }
 
@@ -378,8 +378,8 @@ void StereoCalibration::testCalibration()
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Stereo Remap: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
     cv::Mat left_nice, right_nice;
-    cv::remap(img_left, left_nice, m_stereo_params.left_stereo_map1, m_stereo_params.left_stereo_map2, cv::INTER_LANCZOS4, cv::BORDER_CONSTANT, 0);
-    cv::remap(img_right, right_nice, m_stereo_params.right_stereo_map1, m_stereo_params.right_stereo_map2, cv::INTER_LANCZOS4, cv::BORDER_CONSTANT, 0);
+    cv::remap(img_left, left_nice, m_stereoParams.left_stereo_map1, m_stereoParams.left_stereo_map2, cv::INTER_LANCZOS4, cv::BORDER_CONSTANT, 0);
+    cv::remap(img_right, right_nice, m_stereoParams.right_stereo_map1, m_stereoParams.right_stereo_map2, cv::INTER_LANCZOS4, cv::BORDER_CONSTANT, 0);
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -396,14 +396,14 @@ void StereoCalibration::testCalibration()
 
 void StereoCalibration::createTrackbars()
 {
-    cv::namedWindow(m_depthmap_data.window_name, cv::WINDOW_AUTOSIZE);
-    cv::createTrackbar(m_depthmap_data.min_disparity_title, m_depthmap_data.window_name, &m_depthmap_data.minDisparity, m_depthmap_data.mindisparity_max, onTrackbar);
-    cv::createTrackbar(m_depthmap_data.num_disparities_title, m_depthmap_data.window_name, &m_depthmap_data.numDisparities, m_depthmap_data.numdisparities_max, onTrackbar);
-    cv::createTrackbar(m_depthmap_data.block_size_title, m_depthmap_data.window_name, &m_depthmap_data.blockSize, m_depthmap_data.blocksize_max, onTrackbar);
-    cv::createTrackbar(m_depthmap_data.disp12MaxDiff_title, m_depthmap_data.window_name, &m_depthmap_data.disp12MaxDiff, m_depthmap_data.disp12maxdiff_max, onTrackbar);
-    cv::createTrackbar(m_depthmap_data.uniqueness_ratio_title, m_depthmap_data.window_name, &m_depthmap_data.uniquenessRatio, m_depthmap_data.uniquenessratio_max, onTrackbar);
-    cv::createTrackbar(m_depthmap_data.speckle_window_size_title, m_depthmap_data.window_name, &m_depthmap_data.speckleWindowSize, m_depthmap_data.specklewindowsize_max, onTrackbar);
-    cv::createTrackbar(m_depthmap_data.speckle_range_title, m_depthmap_data.window_name, &m_depthmap_data.speckleRange, m_depthmap_data.specklerange_max, onTrackbar);
+    cv::namedWindow(m_depthmapData.window_name, cv::WINDOW_AUTOSIZE);
+    cv::createTrackbar(m_depthmapData.min_disparity_title, m_depthmapData.window_name, &m_depthmapData.min_disparity, m_depthmapData.mindisparity_limit, onTrackbar);
+    cv::createTrackbar(m_depthmapData.num_disparities_title, m_depthmapData.window_name, &m_depthmapData.num_disparities, m_depthmapData.numdisparities_max, onTrackbar);
+    cv::createTrackbar(m_depthmapData.block_size_title, m_depthmapData.window_name, &m_depthmapData.blockSize, m_depthmapData.blocksize_max, onTrackbar);
+    cv::createTrackbar(m_depthmapData.disp12_max_diff_title, m_depthmapData.window_name, &m_depthmapData.disp12MaxDiff, m_depthmapData.disp12maxdiff_max, onTrackbar);
+    cv::createTrackbar(m_depthmapData.uniqueness_ratio_title, m_depthmapData.window_name, &m_depthmapData.uniquenessRatio, m_depthmapData.uniquenessratio_max, onTrackbar);
+    cv::createTrackbar(m_depthmapData.speckle_window_size_title, m_depthmapData.window_name, &m_depthmapData.prev_speckle_window_size, m_depthmapData.prev_speckle_window_size, onTrackbar);
+    cv::createTrackbar(m_depthmapData.speckle_range_title, m_depthmapData.window_name, &m_depthmapData.speckle_range, m_depthmapData.specklerange_max, onTrackbar);
 }
 
 void StereoCalibration::createLiveDepthMap()
@@ -412,8 +412,8 @@ void StereoCalibration::createLiveDepthMap()
     rectifyAndUndistort();
     
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Stereo SGBM Initialisation: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    m_depthmap_data.stereo = cv::StereoSGBM::create(m_depthmap_data.minDisparity, m_depthmap_data.numDisparities, m_depthmap_data.blockSize, m_depthmap_data.disp12MaxDiff,
-        m_depthmap_data.uniquenessRatio, m_depthmap_data.speckleWindowSize, m_depthmap_data.speckleRange);
+    m_depthmapData.stereo = cv::StereoSGBM::create(m_depthmapData.min_disparity, m_depthmapData.num_disparities, m_depthmapData.blockSize, m_depthmapData.disp12MaxDiff,
+        m_depthmapData.uniquenessRatio, m_depthmapData.prev_speckle_window_size, m_depthmapData.speckle_range);
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Open Cameras and Read Images: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -425,27 +425,27 @@ void StereoCalibration::createLiveDepthMap()
 
     while (1)
     {
-        m_cap0 >> m_depthmap_data.orig_frame0;
-        m_cap1 >> m_depthmap_data.orig_frame1;
+        m_cap0 >> m_depthmapData.orig_frame0;
+        m_cap1 >> m_depthmapData.orig_frame1;
         frame_error = false;
         // check if we succeeded
-        if (m_depthmap_data.orig_frame0.empty() || m_depthmap_data.orig_frame1.empty()) {
+        if (m_depthmapData.orig_frame0.empty() || m_depthmapData.orig_frame1.empty()) {
             std::cerr << "ERROR! blank frame of cam0 or cam1 grabbed\n";
             frame_error = true;
         }
 
         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Stereo Remap: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        cv::remap(m_depthmap_data.orig_frame0, m_depthmap_data.Left_nice, m_depthmap_data.Left_Stereo_Map1, m_depthmap_data.Left_Stereo_Map2, cv::INTER_LANCZOS4, cv::BORDER_CONSTANT, 0);
-        cv::remap(m_depthmap_data.orig_frame1, m_depthmap_data.Right_nice, m_depthmap_data.Right_Stereo_Map1, m_depthmap_data.Right_Stereo_Map2, cv::INTER_LANCZOS4, cv::BORDER_CONSTANT, 0);
+        cv::remap(m_depthmapData.orig_frame0, m_depthmapData.left_nice, m_depthmapData.left_stereo_map1, m_depthmapData.left_stereo_map2, cv::INTER_LANCZOS4, cv::BORDER_CONSTANT, 0);
+        cv::remap(m_depthmapData.orig_frame1, m_depthmapData.right_nice, m_depthmapData.right_stereo_map1, m_depthmapData.right_stereo_map2, cv::INTER_LANCZOS4, cv::BORDER_CONSTANT, 0);
 
         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        cv::imshow("Left image before rectification", m_depthmap_data.orig_frame0);
-        cv::imshow("Right image before rectification", m_depthmap_data.orig_frame1);
+        cv::imshow("Left image before rectification", m_depthmapData.orig_frame0);
+        cv::imshow("Right image before rectification", m_depthmapData.orig_frame1);
 
-        cv::imshow("Left image after rectification", m_depthmap_data.Left_nice);
-        cv::imshow("Right image after rectification", m_depthmap_data.Right_nice);
+        cv::imshow("Left image after rectification", m_depthmapData.left_nice);
+        cv::imshow("Right image after rectification", m_depthmapData.right_nice);
 
 
         if (set_depth_params)
@@ -463,16 +463,16 @@ void StereoCalibration::createLiveDepthMap()
                 set_depth_params = false;
                 std::string stereo_sgbm_params_file = "../../config/stereo_sgbm_params_file.xml";
                 cv::FileStorage fs(stereo_sgbm_params_file, cv::FileStorage::WRITE);
-                fs << "minDisparity" << m_depthmap_data.minDisparity;
-                fs << "numDisparities" << m_depthmap_data.numDisparities;
-                fs << "blockSize" << m_depthmap_data.blockSize;
-                fs << "disp12MaxDiff" << m_depthmap_data.disp12MaxDiff;
-                fs << "uniquenessRatio" << m_depthmap_data.uniquenessRatio;
-                fs << "speckleWindowSize" << m_depthmap_data.speckleWindowSize;
-                fs << "speckleRange" << m_depthmap_data.speckleRange;
+                fs << "min_disparity" << m_depthmapData.min_disparity;
+                fs << "num_disparities" << m_depthmapData.num_disparities;
+                fs << "blockSize" << m_depthmapData.blockSize;
+                fs << "disp12MaxDiff" << m_depthmapData.disp12MaxDiff;
+                fs << "uniquenessRatio" << m_depthmapData.uniquenessRatio;
+                fs << "prev_speckle_window_size" << m_depthmapData.prev_speckle_window_size;
+                fs << "speckle_range" << m_depthmapData.speckle_range;
 
-                /*, m_depthmap_data.minDisparity, m_depthmap_data.numDisparities, m_depthmap_data.blockSize, m_depthmap_data.disp12MaxDiff,
-    m_depthmap_data.uniquenessRatio, m_depthmap_data.speckleWindowSize, m_depthmap_data.speckleRange*/
+                /*, m_depthmapData.min_disparity, m_depthmapData.num_disparities, m_depthmapData.blockSize, m_depthmapData.disp12MaxDiff,
+    m_depthmapData.uniquenessRatio, m_depthmapData.prev_speckle_window_size, m_depthmapData.speckle_range*/
                 cv::destroyAllWindows();
                 break;
                 //case ((int)('n')):
@@ -484,7 +484,7 @@ void StereoCalibration::createLiveDepthMap()
 
         /* else
          {
-             depthmap_data.stereo->compute(depthmap_data.Left_nice, depthmap_data.Right_nice, disp);
+             depthmap_data.stereo->compute(depthmap_data.left_nice, depthmap_data.right_nice, disp);
              cv::imshow(depthmap_data.window_name, disp);
              int key = cv::waitKey(100);
 
@@ -501,8 +501,8 @@ void StereoCalibration::createLiveDepthMap()
 
     }
     // Creating an object of StereoSGBM algorithm
-   /* cv::Ptr<cv::StereoSGBM> stereo = cv::StereoSGBM::create(minDisparity, numDisparities, blockSize, disp12MaxDiff,
-        uniquenessRatio, speckleWindowSize, speckleRange);*/
+   /* cv::Ptr<cv::StereoSGBM> stereo = cv::StereoSGBM::create(min_disparity, num_disparities, blockSize, disp12MaxDiff,
+        uniquenessRatio, prev_speckle_window_size, speckle_range);*/
 
         // Calculating disparith using the StereoSGBM algorithm
 }
@@ -512,10 +512,10 @@ void StereoCalibration::onTrackbar(int, void* userdata)
     DepthmapParams* depthmap_data = reinterpret_cast<DepthmapParams*>(userdata);
     
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Update Stereo Params: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    depthmap_data->stereo = cv::StereoSGBM::create(depthmap_data->minDisparity, 
-                                                depthmap_data->numDisparities, depthmap_data->blockSize, 
+    depthmap_data->stereo = cv::StereoSGBM::create(depthmap_data->min_disparity, 
+                                                depthmap_data->num_disparities, depthmap_data->blockSize, 
                                                 depthmap_data->disp12MaxDiff, depthmap_data->uniquenessRatio, 
-                                                depthmap_data->speckleWindowSize, depthmap_data->speckleRange);
+                                                depthmap_data->prev_speckle_window_size, depthmap_data->speckle_range);
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -524,25 +524,25 @@ void StereoCalibration::onTrackbar(int, void* userdata)
 
     if (depthmap_data->blockSize == 0) depthmap_data->blockSize = 1;
     if (depthmap_data->uniquenessRatio == 0) depthmap_data->uniquenessRatio = 1;
-    if (depthmap_data->speckleWindowSize == 0) depthmap_data->speckleWindowSize = 1;
-    if (depthmap_data->speckleRange == 0) depthmap_data->speckleRange = 1;
+    if (depthmap_data->prev_speckle_window_size == 0) depthmap_data->prev_speckle_window_size = 1;
+    if (depthmap_data->speckle_range == 0) depthmap_data->speckle_range = 1;
 
     try {
 
         cv::Mat disp, disp_color;
-        depthmap_data->stereo->compute(depthmap_data->Left_nice, depthmap_data->Right_nice, disp); // Left_nice, Right_nice ( YOU CALCULATE A DEPTH MAP FROM A PAIR OF RECTIFIED IMAGES AFTER STEREO CALIBRATION!! )
+        depthmap_data->stereo->compute(depthmap_data->left_nice, depthmap_data->right_nice, disp); // left_nice, right_nice ( YOU CALCULATE A DEPTH MAP FROM A PAIR OF RECTIFIED IMAGES AFTER STEREO CALIBRATION!! )
         // https://albertarmea->com/post/opencv-stereo-camera/ (SEE TOWARDS END OF PAGE)
 
         // Normalizing the disparity map for better visualisation
         cv::normalize(disp, disp, 0, 255, cv::NORM_MINMAX, CV_8UC1);
 
-        depthmap_data->prev_minDisparity = depthmap_data->minDisparity;
-        depthmap_data->prev_numDisparities = depthmap_data->numDisparities;
-        depthmap_data->prev_blockSize = depthmap_data->blockSize;
-        depthmap_data->prev_disp12MaxDiff = depthmap_data->disp12MaxDiff;
-        depthmap_data->prev_uniquenessRatio = depthmap_data->uniquenessRatio;
-        depthmap_data->prev_speckleWindowSize = depthmap_data->speckleWindowSize;
-        depthmap_data->prev_speckleRange = depthmap_data->speckleRange;
+        depthmap_data->prev_min_disparity = depthmap_data->min_disparity;
+        depthmap_data->prev_num_disparities = depthmap_data->num_disparities;
+        depthmap_data->prev_blocksize = depthmap_data->blockSize;
+        depthmap_data->prev_disp12_max_diff = depthmap_data->disp12MaxDiff;
+        depthmap_data->prev_uniqueness_ratio = depthmap_data->uniquenessRatio;
+        depthmap_data->prev_speckle_window_size = depthmap_data->prev_speckle_window_size;
+        depthmap_data->prev_speckle_range = depthmap_data->speckle_range;
 
         // Displaying the disparity map
         cv::applyColorMap(disp, disp_color, cv::COLORMAP_JET);
@@ -556,12 +556,12 @@ void StereoCalibration::onTrackbar(int, void* userdata)
 
     catch (cv::Exception) {
         fprintf(stderr, "Last value set threw an exception");
-        depthmap_data->minDisparity = depthmap_data->prev_minDisparity;
-        depthmap_data->numDisparities = depthmap_data->prev_numDisparities;
-        depthmap_data->blockSize = depthmap_data->prev_blockSize;
-        depthmap_data->disp12MaxDiff = depthmap_data->prev_disp12MaxDiff;
-        depthmap_data->uniquenessRatio = depthmap_data->prev_uniquenessRatio;
-        depthmap_data->speckleWindowSize = depthmap_data->prev_speckleWindowSize;
-        depthmap_data->speckleRange = depthmap_data->prev_speckleRange;
+        depthmap_data->min_disparity = depthmap_data->prev_min_disparity;
+        depthmap_data->num_disparities = depthmap_data->prev_num_disparities;
+        depthmap_data->blockSize = depthmap_data->prev_blocksize;
+        depthmap_data->disp12MaxDiff = depthmap_data->prev_disp12_max_diff;
+        depthmap_data->uniquenessRatio = depthmap_data->prev_uniqueness_ratio;
+        depthmap_data->prev_speckle_window_size = depthmap_data->prev_speckle_window_size;
+        depthmap_data->speckle_range = depthmap_data->prev_speckle_range;
     }
 }
