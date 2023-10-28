@@ -2,16 +2,5 @@
 <launch>
 
   <rosparam file="$(find camera_calibration)/config/camera_params.yaml" />
-  <node name="stereo_camera_calibration" pkg="camera_calibration" type="camera_calibration_run" output="screen"/>
+  <node name="stereo_camera_calibration" pkg="camera_calibration" type="cameracalibration" output="screen"/>
 </launch>
-
-<!-- WORKS: 
-     roslaunch camera_calibration camera_calibration.launch 
-     rosparam load src/camera_calibration/config/camera_params.yaml -->
-
-<!-- DOESN'T WORK: 
-     roslaunch camera_calibration camera_calibration.launch _check_frame_rate:=true -->
-
-
-
-<!-- source devel/setup.bash -->
