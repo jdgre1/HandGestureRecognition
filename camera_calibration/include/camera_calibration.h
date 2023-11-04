@@ -28,13 +28,18 @@ static const cv::Size IMAGE_SIZE(IMG_WIDTH, IMG_HEIGHT);
 class StereoCalibration
 {
 public:
-    // Constructor
-    StereoCalibration(ros::NodeHandle& nh);
+    
 
-    // Destructor
-    ~StereoCalibration();
+    // Delete copy constructor
+    StereoCalibration(StereoCalibration& other) = delete;
+
+    // Delete assignment operator
+    void operator=(const StereoCalibration &) = delete;
+
+    static StereoCalibration *GetInstance(ros::NodeHandle& nh);
 
     void run();
+
     struct StereoParams {
         // Checkerboard size
         //
@@ -128,15 +133,18 @@ public:
     }; // depthmap_data;
 
 private:
-    bool runServerParamsConfiguration(void);
+    // Constructor
+    StereoCalibration(ros::NodeHandle& nh);
+
+    bool runParamServerConfig(void);
     bool initialiseCameras();
     int checkFrameRate(int deviceID, int apiID);
     void captureStereoImgsForCalibration();
 	void processCheckerboardCorners(bool draw_corners);
-    bool verifyCheckerboardCorners(cv::Mat& frame0, cv::Mat& frame1);
+    bool checkCheckerboardCornersExist(cv::Mat& frame0, cv::Mat& frame1);
 	
 	void calibrateSingleCameras(bool save_params, bool draw_corners);
-    void calibrateStereo();
+    void calibrateStereoCamera();
 	void saveCameraCalibParams();
     void loadCameraCalibParams();
     
@@ -175,6 +183,10 @@ private:
     // Test calibration by undistorting images
     int m_numImgsToTest = 100;
 	ros::NodeHandle& m_nh;
+
+    static StereoCalibration* instance;
 };
 
 #endif
+
+

@@ -1,5 +1,7 @@
 #include <camera_calibration.h>
 
+StereoCalibration* StereoCalibration::instance = nullptr;
+
 StereoCalibration::StereoCalibration(ros::NodeHandle& nh):
 m_nh(nh)
 {
@@ -8,9 +10,16 @@ m_nh(nh)
         ros::package::getPath("camera_calibration") + "/config/pre_stereo_calib_file.xml";
 };
 
-StereoCalibration::~StereoCalibration() {}
 
-bool StereoCalibration::runServerParamsConfiguration(void)
+StereoCalibration *StereoCalibration::GetInstance(ros::NodeHandle& nh)
+{   
+     if(instance==nullptr){
+        instance = new StereoCalibration(nh);
+    }
+    return instance;
+}
+
+bool StereoCalibration::runParamServerConfig(void)
 {
     bool paramSet = false;
     
@@ -33,16 +42,16 @@ bool StereoCalibration::runServerParamsConfiguration(void)
     if(paramSet) 
     {   
         ROS_INFO("Calibrating cameras for stereovision");
-        bool save_params = true;
+        bool saveParams = true;
         bool drawCorners = true;
-        calibrateSingleCameras(save_params, drawCorners);
+        calibrateSingleCameras(saveParams, drawCorners);
     }
 
     m_nh.getParam("/camera_calibration/calibrate_stereo", paramSet);
     if(paramSet) 
     {   
         ROS_INFO("Calibrating cameras for stereovision");
-        calibrateStereo();
+        calibrateStereoCamera();
     }
 
     m_nh.getParam("/camera_calibration/test_calibration", paramSet);
@@ -64,7 +73,7 @@ bool StereoCalibration::runServerParamsConfiguration(void)
 
 void StereoCalibration::run()
 {
-        runServerParamsConfiguration();
+    runParamServerConfig();
 }
 
 bool StereoCalibration::initialiseCameras()
@@ -72,15 +81,12 @@ bool StereoCalibration::initialiseCameras()
     // Open both cameras:
     m_cap0.open(m_deviceID0, cv::CAP_ANY);
     m_cap1.open(m_deviceID1, cv::CAP_ANY);
-    // m_cap1.open(m_deviceID1, cv::CAP_V4L2);
 
     // check if we succeeded
     if (!m_cap0.isOpened() || !m_cap1.isOpened()) {
         std::cerr << "ERROR! Unable to open one or more cameras\n";
         return false;
     }
-
-    //--- GRAB AND WRITE LOOP
 
     // Begin capturing frames
     std::cout << "Capturing " << m_numCalibrationImgs << " frames for camera " + std::to_string(m_deviceID)
@@ -95,11 +101,7 @@ int StereoCalibration::checkFrameRate(int deviceID, int apiID)
     cv::VideoCapture v_cap0;
     cv::VideoCapture v_cap1;
     v_cap0.open(deviceID, apiID);
-    // const char *pipeline = " tcambin serial=15810833 ! video/x-raw, format=BGRx, width=1280,height=960,
-    // framerate=25/1 ! videoconvert ! appsink"; v_cap1.open(2, cv::CAP_GSTREAMER);
     v_cap1.open(2, apiID);
-
-    // v_cap1.open(1, cv::CAP_V4L);
 
     // check if we succeeded
     if (!v_cap0.isOpened() && !v_cap1.isOpened()) {
@@ -109,11 +111,6 @@ int StereoCalibration::checkFrameRate(int deviceID, int apiID)
         return -1;
     }
 
-    // With webcam get(CV_CAP_PROP_FPS) does not work.
-    // Let's see for ourselves.
-    // double fps = video.get(CV_CAP_PROP_FPS);
-    // If you do not care about backward compatibility
-    // You can use the following instead for OpenCV 3
     double fps = v_cap0.get(cv::CAP_PROP_FPS);
     std::cout << "Frames per second using video.get(CAP_PROP_FPS) : " << fps << std::endl;
 
@@ -173,50 +170,46 @@ void StereoCalibration::captureStereoImgsForCalibration()
             m_cap1 >> frame1;
             // check if we succeeded
             if (frame0.empty() || frame1.empty()) {
-                std::cerr << "ERROR! blank frame of cam0 or cam1 grabbed\n";
+                ROS_ERROR("ERROR! blank frame of cam0 or cam1 grabbed!");
                 continue;
             }
 
             time(&curr_time);
-            if ((curr_time - prev >= 1. / m_frameRate) && verifyCheckerboardCorners(frame0, frame1)) {
+            if ((curr_time - prev >= 1. / m_frameRate) && checkCheckerboardCornersExist(frame0, frame1)) {
                 frameCount++;
                 prev = curr_time;
                 std::string frame_num_str = std::to_string(frameCount);
                 cv::imwrite(m_framesSaveDir + "0/frame0_" + std::to_string(frameCount) + ".png", frame0);
                 cv::imwrite(m_framesSaveDir + "1/frame1_" + std::to_string(frameCount) + ".png", frame1);
-                std::cout << "frameCount: " << frameCount << std::endl;
+                ROS_DEBUG_STREAM("frameCount: " << frameCount << std::endl);
             }
         }
     }
-    return;
 }
 
-void StereoCalibration::calibrateSingleCameras(bool save_params, bool drawCorners)
+void StereoCalibration::calibrateSingleCameras(bool saveParams, bool drawCorners)
 {
 
     processCheckerboardCorners(drawCorners);
 
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Single left camera calibration:
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+    //  Single left camera calibration:
+    // ~~~~~~~~~~~~~~~~~~~~~~
     fprintf(stderr, "Processing left camera calibration...\n");
     cv::Mat rvecs, tvecs;
     double rms = cv::calibrateCamera(m_stereoParams.objpoints_left, m_stereoParams.imgpoints_left, IMAGE_SIZE,
                                      m_stereoParams.mtxL, m_stereoParams.distL, rvecs, tvecs);
     std::cout << "Left camera calibration rms of " << rms << std::endl;
 
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Single right camera calibration:
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+    //  Single right camera calibration:
+    // ~~~~~~~~~~~~~~~~~~~~~~
     fprintf(stderr, "Processing right camera calibration...\n");
     rms = cv::calibrateCamera(m_stereoParams.objpoints_right, m_stereoParams.imgpoints_right, IMAGE_SIZE,
                               m_stereoParams.mtxR, m_stereoParams.distR, rvecs, tvecs);
     std::cout << "Right camera calibration rms of " << rms << std::endl;
 
-    if (save_params)
+    if (saveParams){
         saveCameraCalibParams();
-
-    return;
+    }
 }
 
 void StereoCalibration::processCheckerboardCorners(bool drawCorners)
@@ -229,22 +222,25 @@ void StereoCalibration::processCheckerboardCorners(bool drawCorners)
     cv::Vec3f pt(0, 0, 0);
     std::vector<cv::Vec3f> objp;
     cv::Size CHECKERBOARD(7, 10);
-    for (int i = 0; i < CHECKERBOARD.height; i++)
-        for (int j = 0; j < CHECKERBOARD.width; j++)
+    for (int i = 0; i < CHECKERBOARD.height; i++){
+        for (int j = 0; j < CHECKERBOARD.width; j++){
             objp.push_back(cv::Vec3f(j, i, 0));
+        }
+    }
 
-    if (drawCorners)
-        fprintf(stderr, "You can press 'Q' to quit this script.\n");
-
+    if (drawCorners){
+        ROS_INFO("Press 'Q' to quit the script.\n");
+    }
+    
     for (uint16_t photoCounter = 1; photoCounter <= m_numCalibrationImgs; photoCounter++) {
         std::cout << "imgL: " << m_framesSaveDir + "0/frame0_" + std::to_string(photoCounter) + ".png" << std::endl;
         std::cout << "imgR: " << m_framesSaveDir + "1/frame1_" + std::to_string(photoCounter) + ".png" << std::endl;
-        fprintf(stderr, "Import pair No %d\n", photoCounter);
+        ROS_DEBUG("There are no images in pair No %d\n", photoCounter);
         imgL = cv::imread(m_framesSaveDir + "0/frame0_" + std::to_string(photoCounter) + ".png");
         imgR = cv::imread(m_framesSaveDir + "1/frame1_" + std::to_string(photoCounter) + ".png");
 
         if (imgR.empty() || imgL.empty()) {
-            fprintf(stderr, "There are no images in pair No %d\n", photoCounter);
+            ROS_WARN("There are no images in pair No %d\n", photoCounter);
             continue;
         }
 
@@ -268,8 +264,9 @@ void StereoCalibration::processCheckerboardCorners(bool drawCorners)
             cv::drawChessboardCorners(imgR, CHECKERBOARD, cornersR, retR);
             cv::imshow("Corners RIGHT", imgR);
             char key = cv::waitKey();
-            if (key == 'q' || key == 'Q')
+            if (key == 'q' || key == 'Q'){
                 exit(1);
+            }
         }
 
         // Refine corners and add to array for processing
@@ -282,18 +279,14 @@ void StereoCalibration::processCheckerboardCorners(bool drawCorners)
             cv::cornerSubPix(grayR, cornersR, cv::Size(3, 3), cv::Size(-1, -1), criteria);
             m_stereoParams.imgpoints_right.push_back(cornersR);
         } else {
-            fprintf(stderr, "Pair No %d ignored, as no chessboard found\n", photoCounter);
+            ROS_WARN("Pair No %d ignored, as no chessboard found\n", photoCounter);
             continue;
         }
     }
-
-    return;
 }
 
-bool StereoCalibration::verifyCheckerboardCorners(cv::Mat& frame0, cv::Mat& frame1)
+bool StereoCalibration::checkCheckerboardCornersExist(cv::Mat& frame0, cv::Mat& frame1)
 {
-    /* Finding checker board corners: If desired number of corners are found in the image then success = true  */
-
     // Defining the dimensions of checkerboard
     int CHECKERBOARD[2]{7, 10};
 
@@ -324,21 +317,21 @@ bool StereoCalibration::verifyCheckerboardCorners(cv::Mat& frame0, cv::Mat& fram
 
     // If both successful, save points, draw checkboard corners and display
     if (success) {
-        cv::Mat frame0_copy = frame0.clone();
-        cv::Mat frame1_copy = frame1.clone();
+        cv::Mat frame0Copy = frame0.clone();
+        cv::Mat frame1Copy = frame1.clone();
         cv::TermCriteria criteria(cv::TermCriteria::MAX_ITER + cv::TermCriteria::EPS, 30, 0.001);
 
         cv::cornerSubPix(gray0, corner_pts0, cv::Size(11, 11), cv::Size(-1, -1), criteria);
         cv::cornerSubPix(gray1, corner_pts1, cv::Size(11, 11), cv::Size(-1, -1), criteria);
 
         // Displaying the detected corner points on the checker board
-        cv::drawChessboardCorners(frame0_copy, cv::Size(CHECKERBOARD[0], CHECKERBOARD[1]), corner_pts0, success);
-        cv::drawChessboardCorners(frame1_copy, cv::Size(CHECKERBOARD[0], CHECKERBOARD[1]), corner_pts1, success);
+        cv::drawChessboardCorners(frame0Copy, cv::Size(CHECKERBOARD[0], CHECKERBOARD[1]), corner_pts0, success);
+        cv::drawChessboardCorners(frame1Copy, cv::Size(CHECKERBOARD[0], CHECKERBOARD[1]), corner_pts1, success);
 
         // Display error between images on frames: Helps determine if images should be included for calibration:
 
-        cv::imshow("frame0", frame0_copy);
-        cv::imshow("frame1", frame1_copy);
+        cv::imshow("frame0", frame0Copy);
+        cv::imshow("frame1", frame1Copy);
 
         // Allow manual-user check:
         int key = cv::waitKey();
@@ -355,7 +348,7 @@ bool StereoCalibration::verifyCheckerboardCorners(cv::Mat& frame0, cv::Mat& fram
     return false;
 }
 
-void StereoCalibration::calibrateStereo()
+void StereoCalibration::calibrateStereoCamera()
 {
     loadCameraCalibParams();
 
@@ -374,7 +367,6 @@ void StereoCalibration::calibrateStereo()
         m_stereoParams.Rot, m_stereoParams.Trns, Emat, Fmat, flag,
         cv::TermCriteria(cv::TermCriteria::MAX_ITER + cv::TermCriteria::EPS, 30, 1e-6));
     std::cout << "stereoRms: " << stereoRms << std::endl;
-    return;
 }
 
 // Save the parameters obtained from successful calibration:
@@ -388,7 +380,6 @@ void StereoCalibration::saveCameraCalibParams()
     fs << "distR" << m_stereoParams.distR;
     fs << "mtxL" << m_stereoParams.mtxL;
     fs << "mtxR" << m_stereoParams.mtxR;
-    return;
 }
 
 void StereoCalibration::loadCameraCalibParams()
@@ -401,7 +392,6 @@ void StereoCalibration::loadCameraCalibParams()
     fs["distR"] >> m_stereoParams.distR;
     fs["mtxL"] >> m_stereoParams.mtxL;
     fs["mtxR"] >> m_stereoParams.mtxR;
-    return;
 }
 
 void StereoCalibration::rectifyAndUndistort()
@@ -423,8 +413,7 @@ void StereoCalibration::rectifyAndUndistort()
 
 void StereoCalibration::testCalibration()
 {
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Load Test Images:
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //  Load Test Images:
     cv::Mat imgLeft = cv::imread(m_framesSaveDir + "0/frame0_1.png");
     cv::Mat imgRight = cv::imread(m_framesSaveDir + "1/frame1_1.png");
     if(imgLeft.rows == 0 || imgRight.rows == 0)
@@ -432,19 +421,17 @@ void StereoCalibration::testCalibration()
         ROS_ERROR("Invalid file directory ");
         return;
     }
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Stereo Calibration:
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // ~~~~~~~~~~~~~~~~~~~~~~
 
-    calibrateStereo();
+    //  Stereo Calibration:
+    calibrateStereoCamera();
+    // ~~~~~~~~~~~~~~~~~~~~~~
 
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Stereo Rectification / Undistortion:
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+    //  Stereo Rectification / Undistortion:
     rectifyAndUndistort();
+    // ~~~~~~~~~~~~~~~~~~~~~~
 
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Stereo Remap:
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+    //  Stereo Remap:
     cv::Mat leftAfterRectify, rightAfterRectify;
     cv::remap(imgLeft, leftAfterRectify, m_stereoParams.left_stereo_map1, m_stereoParams.left_stereo_map2, cv::INTER_LANCZOS4,
               cv::BORDER_CONSTANT, 0);
@@ -484,19 +471,18 @@ void StereoCalibration::createTrackbars()
 
 void StereoCalibration::createLiveDepthMap()
 {
-    calibrateStereo();
+    calibrateStereoCamera();
     rectifyAndUndistort();
 
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Stereo SGBM Initialisation:
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Stereo SGBM Initialisation:
+    // ~~~~~~~~~~~~~~~~~~~~~~
     m_depthmapData.stereo =
         cv::StereoSGBM::create(m_depthmapData.min_disparity, m_depthmapData.num_disparities, m_depthmapData.blocksize,
                                m_depthmapData.disp12_max_diff, m_depthmapData.uniqueness_ratio,
                                m_depthmapData.prev_speckle_window_size, m_depthmapData.speckle_range);
 
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Open Cameras and Read Images:
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+    // Open Cameras and Read Images:
+    // ~~~~~~~~~~~~~~~~~~~~~~
     bool frameError;
     bool setDepthParams = true;
     cv::Mat disp;
@@ -510,19 +496,18 @@ void StereoCalibration::createLiveDepthMap()
         frameError = false;
         // check if we succeeded
         if (m_depthmapData.orig_frame0.empty() || m_depthmapData.orig_frame1.empty()) {
-            std::cerr << "ERROR! blank frame of cam0 or cam1 grabbed\n";
+            std::cerr << "Blank frame of cam0 or cam1 grabbed\n";
             frameError = true;
         }
 
-        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Stereo Remap:
-        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+        //  Stereo Remap:
+        // ~~~~~~~~~~~~~~~~~~~~~~
         cv::remap(m_depthmapData.orig_frame0, m_depthmapData.left_after_rectify, m_depthmapData.left_stereo_map1,
                   m_depthmapData.left_stereo_map2, cv::INTER_LANCZOS4, cv::BORDER_CONSTANT, 0);
         cv::remap(m_depthmapData.orig_frame1, m_depthmapData.right_after_rectify, m_depthmapData.right_stereo_map1,
                   m_depthmapData.right_stereo_map2, cv::INTER_LANCZOS4, cv::BORDER_CONSTANT, 0);
 
-        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // ~~~~~~~~~~~~~~~~~~~~~~
 
         cv::imshow("Left image before rectification", m_depthmapData.orig_frame0);
         cv::imshow("Right image before rectification", m_depthmapData.orig_frame1);
@@ -532,7 +517,6 @@ void StereoCalibration::createLiveDepthMap()
 
         if (setDepthParams) {
             createTrackbars();
-
             int key = cv::waitKey();
 
             switch (key) {
@@ -590,16 +574,16 @@ void StereoCalibration::onTrackbar(int, void* userdata)
 {
     DepthmapParams* depthmapData = reinterpret_cast<DepthmapParams*>(userdata);
 
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Update Stereo Params:
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //  Update Stereo Params:
+    // ~~~~~~~~~~~~~~~~~~~~~~
     depthmapData->stereo =
         cv::StereoSGBM::create(depthmapData->min_disparity, depthmapData->num_disparities, depthmapData->blocksize,
                                depthmapData->disp12_max_diff, depthmapData->uniqueness_ratio,
                                depthmapData->prev_speckle_window_size, depthmapData->speckle_range);
 
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // ~~~~~~~~~~~~~~~~~~~~~~
 
-    std::cout << "Calculating new parameters:" << std::endl;
+    ROS_DEBUG("Reloading disparity map with new input parameters:");
 
     if (depthmapData->blocksize == 0)
         depthmapData->blocksize = 1;
@@ -640,7 +624,7 @@ void StereoCalibration::onTrackbar(int, void* userdata)
     }
 
     catch (cv::Exception) {
-        fprintf(stderr, "Last value set threw an exception");
+        ROS_WARN("Depth map trackbar-data was invalid!");
         depthmapData->min_disparity = depthmapData->prev_min_disparity;
         depthmapData->num_disparities = depthmapData->prev_num_disparities;
         depthmapData->blocksize = depthmapData->prev_blocksize;
